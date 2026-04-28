@@ -20,7 +20,7 @@
    [2]: https://github.com/cognitect-labs/aws-api"
   (:require [clojure.string :as str])
   (:import [java.io InputStream]
-           [java.net URL]
+           [java.net URL URLEncoder URLDecoder]
            [java.time ZoneId ZoneOffset]
            [java.time.format DateTimeFormatter]
            [java.security MessageDigest]
@@ -286,7 +286,7 @@
                               ["X-Amz-Expires" expires])
                             extra-query-params)
          signature (signature credentials
-                              (.getPath url-obj)
+                              (URLDecoder/decode (.getPath url-obj))
                               {:timestamp timestamp
                                :region region
                                :service service
@@ -299,7 +299,9 @@
                                :signed-headers {"host" host}})]
      (str (.getProtocol url-obj) "://" host (.getPath url-obj) "?"
           (->query-str query-params)
-          "&X-Amz-Signature=" signature))))
+          "&X-Amz-Signature=" signature
+          (when-let [fragment (.getRef url-obj)]
+            (str "#" fragment))))))
 
 (defn ^:no-doc construct-endpoint-str
   "Helper function to deal with the endpoints data structure from Cognitect client
@@ -332,5 +334,5 @@
         url (-> (if path-style
                   (str endpoint-str bucket "/")
                   (str/replace endpoint-str #"://" (str "://" bucket ".")))
-                (str object-key))]
+                (str (URLEncoder/encode object-key "UTF-8")))]
     (presign (:credentials client) url (assoc opts :region (or region (:region client))))))
